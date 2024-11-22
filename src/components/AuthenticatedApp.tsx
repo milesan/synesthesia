@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Sprout } from 'lucide-react';
 import { MyBookings } from './MyBookings';
 import { BookingPage } from '../pages/BookingPage';
@@ -9,9 +9,31 @@ import { supabase } from '../lib/supabase';
 import { motion } from 'framer-motion';
 
 export function AuthenticatedApp() {
-  const [currentPage, setCurrentPage] = useState<'stay' | 'my-bookings' | 'admin'>('stay');
+  const [currentPage, setCurrentPage] = useState<'stay' | 'stay2' | 'my-bookings' | 'admin'>('stay2');
   const session = useSession();
   const isAdmin = session?.user?.email === 'andre@thegarden.pt';
+
+  // Preload images for Book2Page
+  useEffect(() => {
+    const preloadImages = async () => {
+      try {
+        const { data: accommodations } = await supabase
+          .from('accommodations')
+          .select('image_url');
+
+        if (accommodations) {
+          accommodations.forEach(acc => {
+            const img = new Image();
+            img.src = acc.image_url;
+          });
+        }
+      } catch (error) {
+        console.error('Error preloading images:', error);
+      }
+    };
+
+    preloadImages();
+  }, []);
 
   return (
     <div className="min-h-screen bg-stone-50">
@@ -33,6 +55,16 @@ export function AuthenticatedApp() {
                   }`}
                 >
                   Stay
+                </button>
+                <button
+                  onClick={() => setCurrentPage('stay2')}
+                  className={`text-sm font-body transition-colors ${
+                    currentPage === 'stay2' 
+                      ? 'text-emerald-900 font-medium' 
+                      : 'text-stone-600 hover:text-emerald-900'
+                  }`}
+                >
+                  Stay2
                 </button>
                 <button
                   onClick={() => setCurrentPage('my-bookings')}
@@ -60,7 +92,7 @@ export function AuthenticatedApp() {
               <span className="text-stone-600 font-body text-sm">{session?.user.email}</span>
               <button 
                 onClick={() => supabase.auth.signOut()} 
-                className="bg-emerald-900 text-white px-6 py-2 rounded-full hover:bg-emerald-800 transition-colors text-sm font-body"
+                className="bg-emerald-900 text-white px-6 py-2 hover:bg-emerald-800 transition-colors text-sm font-body"
               >
                 Sign Out
               </button>
@@ -70,7 +102,8 @@ export function AuthenticatedApp() {
       </header>
 
       <main className="relative">
-        {currentPage === 'stay' && <Book2Page />}
+        {currentPage === 'stay' && <BookingPage />}
+        {currentPage === 'stay2' && <Book2Page />}
         {currentPage === 'my-bookings' && <MyBookings />}
         {currentPage === 'admin' && isAdmin && <AdminPage />}
       </main>
