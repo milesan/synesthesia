@@ -5,7 +5,7 @@ import { WeekSelector } from './components/WeekSelector';
 import { CabinSelector } from './components/CabinSelector';
 import { BookingSummary } from './components/BookingSummary';
 import { generateWeeks, generateSquigglePath, getWeeksInRange } from './utils/dates';
-import { CabinRates } from './types';
+import type { CabinRates } from './types';
 
 const WEEKS_TO_SHOW = 16;
 const BASE_RATE = 245;
@@ -53,11 +53,10 @@ function App() {
     setSelectedWeeks(prev => {
       const isSelected = prev.some(w => isSameWeek(w, week));
       
-      // If trying to deselect and it's not an edge week, return unchanged
       if (isSelected && !isFirstOrLastSelected(week)) {
         return prev;
       }
-
+      
       if (isSelected) {
         return prev.filter(w => !isSameWeek(w, week));
       }
