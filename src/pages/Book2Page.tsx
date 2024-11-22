@@ -1,162 +1,171 @@
-import React, { useState } from 'react';
-import { DateRange } from 'react-day-picker';
-import { DateRangePicker } from '../components/DateRangePicker';
-import { AccommodationCard } from '../components/AccommodationCard';
-import { useAccommodations } from '../hooks/useAccommodations';
-import { useSession } from '../hooks/useSession';
-import { AdminArrivalRules } from '../components/AdminArrivalRules';
-import { SchedulingRules } from '../components/admin/SchedulingRules';
-import { DayRulesModal } from '../components/admin/DayRulesModal';
-import { AddRuleForm } from '../components/admin/AddRuleForm';
-import { BlockDatesModal } from '../components/admin/BlockDatesModal';
-import { useArrivalRules } from '../hooks/useArrivalRules';
-import { Calendar, CalendarDays, Plus, Ban } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { Trees, ChevronLeft, ChevronRight } from 'lucide-react';
+import { isSameWeek, addWeeks, isAfter, isBefore, addMonths, startOfMonth, format } from 'date-fns';
+import { WeekSelector } from '../components/WeekSelector';
+import { CabinSelector } from '../components/CabinSelector';
+import { BookingSummary } from '../components/BookingSummary';
+import { MaxWeeksModal } from '../components/MaxWeeksModal';
+import { generateWeeks, generateSquigglePath, getWeeksInRange } from '../utils/dates';
+import { useWeeklyAccommodations } from '../hooks/useWeeklyAccommodations';
+import { motion } from 'framer-motion';
+import clsx from 'clsx';
+import './Book2Page.css';
+
+const WEEKS_PER_VIEW = 16;
+const BACKGROUND_IMAGE = "https://images.unsplash.com/photo-1510798831971-661eb04b3739?q=80&w=2940&auto=format&fit=crop";
 
 export function Book2Page() {
-  const [dateRange, setDateRange] = useState<DateRange | undefined>();
-  const [showAccommodations, setShowAccommodations] = useState(false);
-  const [showArrivalRules, setShowArrivalRules] = useState(false);
-  const [showSchedulingRules, setShowSchedulingRules] = useState(false);
-  const [showDayRules, setShowDayRules] = useState(false);
-  const [showAddRule, setShowAddRule] = useState(false);
-  const [showBlockDates, setShowBlockDates] = useState(false);
-  const { accommodations, loading, error } = useAccommodations();
-  const { rules } = useArrivalRules();
-  const session = useSession();
+  const { accommodations, loading } = useWeeklyAccommodations();
+  const [selectedWeeks, setSelectedWeeks] = useState<Date[]>([]);
+  const [selectedAccommodation, setSelectedAccommodation] = useState<string | null>(null);
+  const [currentMonth, setCurrentMonth] = useState(() => startOfMonth(new Date()));
+  const [showMaxWeeksModal, setShowMaxWeeksModal] = useState(false);
+  
+  const [squigglePaths] = useState(() => 
+    Array.from({ length: WEEKS_PER_VIEW }, () => generateSquigglePath())
+  );
 
-  const isAdmin = session?.user?.email === 'andre@thegarden.pt';
+  const weeks = useMemo(() => 
+    generateWeeks(currentMonth, WEEKS_PER_VIEW),
+    [currentMonth]
+  );
 
-  const handleSearch = () => {
-    if (dateRange?.from && dateRange?.to) {
-      setShowAccommodations(true);
-    }
+  const isConsecutiveWeek = (nextWeek: Date | undefined) => {
+    if (!nextWeek || selectedWeeks.length === 0) return false;
+    return selectedWeeks.some(week => 
+      isSameWeek(addWeeks(week, 1), nextWeek)
+    );
   };
 
-  const capitalizeFirstLetter = (string: string) => {
-    return string.charAt(0).toUpperCase() + string.slice(1);
+  const isFirstOrLastSelected = (week: Date) => {
+    if (selectedWeeks.length === 0) return false;
+    return isSameWeek(week, selectedWeeks[0]) || 
+           isSameWeek(week, selectedWeeks[selectedWeeks.length - 1]);
+  };
+
+  const toggleWeek = async (week: Date) => {
+    setSelectedWeeks(prev => {
+      const isSelected = prev.some(w => isSameWeek(w, week));
+      
+      if (isSelected && !isFirstOrLastSelected(week)) {
+        return prev;
+      }
+      
+      if (isSelected) {
+        return prev.filter(w => !isSameWeek(w, week));
+      }
+      
+      if (prev.length === 0) {
+        return [week];
+      }
+
+      const earliestDate = prev[0];
+      const latestDate = prev[prev.length - 1];
+
+      // Check if adding this week would exceed 12 weeks
+      let newWeeks: Date[];
+      if (isBefore(week, earliestDate)) {
+        newWeeks = [...getWeeksInRange(weeks, week, latestDate)];
+      } else if (isAfter(week, latestDate)) {
+        newWeeks = [...getWeeksInRange(weeks, earliestDate, week)];
+      } else {
+        return prev;
+      }
+
+      if (newWeeks.length > 12) {
+        setShowMaxWeeksModal(true);
+        return prev;
+      }
+
+      return newWeeks;
+    });
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-12">
-      <div className="max-w-3xl mx-auto mb-12">
-        <div className="flex justify-between items-start mb-8">
-          <div>
-            <h1 className="text-4xl font-display font-light text-stone-900 mb-3">Book Your Stay</h1>
-            <p className="text-stone-600">Choose a {capitalizeFirstLetter(rules.arrival_day)} to begin your journey</p>
-          </div>
-          {isAdmin && (
-            <div className="flex gap-4">
-              <button
-                onClick={() => setShowDayRules(true)}
-                className="flex items-center gap-2 bg-emerald-900 text-white px-4 py-2 rounded-lg hover:bg-emerald-800"
-              >
-                <CalendarDays className="w-4 h-4" />
-                Day Rules
-              </button>
-              <button
-                onClick={() => setShowAddRule(true)}
-                className="flex items-center gap-2 bg-emerald-900 text-white px-4 py-2 rounded-lg hover:bg-emerald-800"
-              >
-                <Plus className="w-4 h-4" />
-                Add Rule
-              </button>
-              <button
-                onClick={() => setShowBlockDates(true)}
-                className="flex items-center gap-2 bg-emerald-900 text-white px-4 py-2 rounded-lg hover:bg-emerald-800"
-              >
-                <Ban className="w-4 h-4" />
-                Block Dates
-              </button>
-              <button
-                onClick={() => setShowSchedulingRules(true)}
-                className="flex items-center gap-2 bg-emerald-900 text-white px-4 py-2 rounded-lg hover:bg-emerald-800"
-              >
-                <Calendar className="w-4 h-4" />
-                Scheduling Rules
-              </button>
-              <button
-                onClick={() => setShowArrivalRules(true)}
-                className="bg-emerald-900 text-white px-4 py-2 rounded-lg hover:bg-emerald-800"
-              >
-                Set Arrival Rules
-              </button>
-            </div>
-          )}
+    <div 
+      className="stay2-container min-h-screen p-4 md:p-8 stay2-tree-pattern"
+      style={{
+        backgroundImage: `linear-gradient(rgba(244, 240, 232, 0.9), rgba(244, 240, 232, 0.9)), url(${BACKGROUND_IMAGE})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+      }}
+    >
+      <header className="max-w-6xl mx-auto mb-12">
+        <div className="flex items-center gap-3 mb-2">
+          <Trees className="w-6 h-6 text-emerald-600" />
+          <h1 className="text-2xl font-serif">the Garden</h1>
         </div>
-        
-        <div className="bg-white p-8 rounded-xl shadow-sm border border-stone-200">
-          <div className="space-y-6">
-            <DateRangePicker selected={dateRange} onSelect={setDateRange} />
-            <button
-              onClick={handleSearch}
-              disabled={!dateRange?.from || !dateRange?.to}
-              className="w-full bg-emerald-900 text-white py-3 px-6 rounded-lg hover:bg-emerald-800 disabled:bg-stone-300 disabled:cursor-not-allowed transition-colors text-sm font-body"
+        <p className="text-stone-600 font-mono">Escape to reality</p>
+      </header>
+
+      <div className="grid lg:grid-cols-[2fr,1fr] gap-8 max-w-6xl mx-auto relative">
+        <section className="relative">
+          <div className="flex items-center justify-between mb-8">
+            <motion.button
+              onClick={() => setCurrentMonth(prev => addMonths(prev, -1))}
+              className={clsx(
+                "stay2-month-nav",
+                "px-3 py-1.5"
+              )}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
             >
-              Search Available Rooms
-            </button>
+              Previous Month
+            </motion.button>
+            
+            <h2 className="text-3xl font-serif font-light">
+              {format(currentMonth, 'MMMM yyyy')}
+            </h2>
+            
+            <motion.button
+              onClick={() => setCurrentMonth(prev => addMonths(prev, 1))}
+              className={clsx(
+                "stay2-month-nav",
+                "px-3 py-1.5"
+              )}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+            >
+              Next Month
+            </motion.button>
           </div>
+
+          <div className="bg-white p-6 mb-12">
+            <WeekSelector
+              weeks={weeks}
+              selectedWeeks={selectedWeeks}
+              squigglePaths={squigglePaths}
+              onToggleWeek={toggleWeek}
+              isConsecutiveWeek={isConsecutiveWeek}
+              isFirstOrLastSelected={isFirstOrLastSelected}
+            />
+          </div>
+          
+          <CabinSelector
+            accommodations={accommodations}
+            selectedAccommodation={selectedAccommodation}
+            onSelectAccommodation={setSelectedAccommodation}
+            selectedWeeks={selectedWeeks}
+            currentMonth={currentMonth}
+          />
+        </section>
+
+        <div className="lg:sticky lg:top-8 lg:self-start">
+          <BookingSummary
+            selectedWeeks={selectedWeeks}
+            selectedAccommodation={selectedAccommodation ? 
+              accommodations.find(a => a.id === selectedAccommodation) : null}
+            baseRate={245}
+            onClearWeeks={() => setSelectedWeeks([])}
+            onClearAccommodation={() => setSelectedAccommodation(null)}
+          />
         </div>
       </div>
 
-      {showAccommodations && (
-        <div>
-          <h2 className="text-3xl font-display font-light text-stone-900 mb-8">Available Rooms</h2>
-          {loading ? (
-            <div className="text-center py-12">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-900 mx-auto"></div>
-            </div>
-          ) : error ? (
-            <div className="text-center py-12 text-rose-600">
-              {error.message}
-            </div>
-          ) : accommodations.length === 0 ? (
-            <div className="text-center py-12 text-stone-600">
-              No rooms available for these dates. Please try different dates.
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
-              {accommodations.map((accommodation) => (
-                <AccommodationCard 
-                  key={accommodation.id} 
-                  accommodation={accommodation}
-                  checkIn={dateRange?.from}
-                  checkOut={dateRange?.to}
-                />
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
-      {showArrivalRules && (
-        <AdminArrivalRules onClose={() => setShowArrivalRules(false)} />
-      )}
-
-      {showSchedulingRules && (
-        <SchedulingRules onClose={() => setShowSchedulingRules(false)} />
-      )}
-
-      {showDayRules && (
-        <DayRulesModal onClose={() => setShowDayRules(false)} />
-      )}
-
-      {showAddRule && (
-        <AddRuleForm 
-          onClose={() => setShowAddRule(false)} 
-          onSave={() => {
-            setShowAddRule(false);
-          }} 
-        />
-      )}
-
-      {showBlockDates && (
-        <BlockDatesModal
-          onClose={() => setShowBlockDates(false)}
-          onSave={() => {
-            setShowBlockDates(false);
-          }}
-        />
-      )}
+      <MaxWeeksModal 
+        isOpen={showMaxWeeksModal}
+        onClose={() => setShowMaxWeeksModal(false)}
+      />
     </div>
   );
 }
