@@ -1,0 +1,27 @@
+@keyframes squiggle {
+  from {
+    stroke-dashoffset: 150;
+  }
+  to {
+    stroke-dashoffset: -150;
+  }
+}
+
+@keyframes pixelBorder {
+  0%, 100% {
+    clip-path: polygon(
+      0 4px, 4px 0,
+      calc(100% - 4px) 0, 100% 4px,
+      100% calc(100% - 4px), calc(100% - 4px) 100%,
+      4px 100%, 0 calc(100% - 4px)
+    );
+  }
+  50% {
+    clip-path: polygon(
+      0 5px, 5px 0,
+      calc(100% - 5px) 0, 100% 5px,
+      100% calc(100% - 5px), calc(100% - 5px) 100%,
+      5px 100%, 0 calc(100% - 5px)
+    );
+  }
+}
