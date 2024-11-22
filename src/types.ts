@@ -11,3 +11,14 @@ export interface Accommodation {
   bathrooms: number;
   superhost: boolean;
 }
+
+export interface CabinRates {
+  [key: string]: number;
+}
+
+export interface Week {
+  date: Date;
+  isSelected: boolean;
+  isFirstWeek: boolean;
+  isLastWeek: boolean;
+}
