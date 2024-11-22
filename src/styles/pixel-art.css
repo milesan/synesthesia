@@ -1,0 +1,31 @@
+.pixel-corners {
+  position: relative;
+  clip-path: polygon(
+    0 4px, 4px 0,
+    calc(100% - 4px) 0, 100% 4px,
+    100% calc(100% - 4px), calc(100% - 4px) 100%,
+    4px 100%, 0 calc(100% - 4px)
+  );
+}
+
+.pixel-corners::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 4px;
+  right: 4px;
+  height: 2px;
+  background: currentColor;
+  opacity: 0.2;
+  transition: all 0.3s ease;
+}
+
+.pixel-corners:hover::after {
+  height: 3px;
+  opacity: 0.3;
+}
+
+.pixel-corners.selected::after {
+  height: 4px;
+  opacity: 0.4;
+}
